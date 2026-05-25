@@ -1,7 +1,7 @@
 import aws_cdk as core
 import aws_cdk.assertions as assertions
 
-from infrastructure.infrastructure_stack import InfrastructureStack
+from infrastructure.stacks.infrastructure_stack import InfrastructureStack
 
 # example tests. To run these tests, uncomment this file along with the example
 # resource in infrastructure/infrastructure_stack.py
