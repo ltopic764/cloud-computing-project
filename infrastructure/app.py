@@ -3,7 +3,7 @@ import os
 
 import aws_cdk as cdk
 
-from infrastructure.stacks.infrastructure_stack import InfrastructureStack
+from stacks.infrastructure_stack import InfrastructureStack
 from stacks.storage_stack import StorageStack
 from stacks.compute_stack import ComputeStack
 

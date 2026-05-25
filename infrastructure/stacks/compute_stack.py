@@ -9,6 +9,9 @@ from aws_cdk import aws_iam as iam
 from constructs import Construct
 import os
 
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+
 class ComputeStack(Stack):
     """
     Stack that creates Lambda functions and their schedulers
@@ -37,7 +40,9 @@ class ComputeStack(Stack):
             runtime=lambda_.Runtime.PYTHON_3_11,
 
             # Path to where the code is 
-            code=lambda_.Code.from_asset("src/bronze/hacker_news"),
+            code=lambda_.Code.from_asset(
+                os.path.join(PROJECT_ROOT, "src", "bronze", "hacker_news")
+            ),
 
             # which file and funcion is entry point
             handler="handler.handler", # handler.py, handler function
@@ -66,7 +71,7 @@ class ComputeStack(Stack):
                 hour="7",
             ),
 
-            description="Trigger Lambda every day at ",
+            description="Trigger Lambda every day at 8",
         )
 
         # when this schedule is triggered call lambda
