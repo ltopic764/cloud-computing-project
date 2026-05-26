@@ -15,3 +15,6 @@ cdk.out/
 # OS
 .DS_Store
 Thumbs.db
+
+# Lambda vendor dependencies
+src/**/vendor

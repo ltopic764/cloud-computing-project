@@ -21,7 +21,7 @@ class StorageStack(Stack):
             self,
             "DataLakeBucket",
 
-            bucket_name="social_media_pipeline-datalake", # bucket name on AWS
+            bucket_name="social-media-pipeline-datalake", # bucket name on AWS
 
             versioned=False, # no need for different file versions
 
