@@ -63,7 +63,7 @@ def fetch_page(item_type: str, start_ts: int, end_ts: int, page: int, session: r
         # If status code 4xx,5xx error
         response.raise_for_status()
 
-        return response.join()
+        return response.json()
     
     except requests.exceptions.Timeout:
         logger.warning(f"Timeout for {item_type}, page {page}, skipping")

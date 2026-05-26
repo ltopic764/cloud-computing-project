@@ -1,6 +1,12 @@
+import sys
+import os
+
+# Adding vendor/ to python path
+# vendor/ holds dependencies for lambda
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "vendor"))
+
 import logging
 import json
-import os
 from datetime import datetime, timezone, timedelta
 
 import boto3
