@@ -3,7 +3,7 @@ from aws_cdk import (
     Duration,
 )
 from aws_cdk import aws_lambda as lambda_
-from aws_cdk import aws_events as events
+from aws_cdk import aws_events as events # CDK module for EventBridge (scheduler)
 from aws_cdk import aws_events_targets as targets
 from aws_cdk import aws_iam as iam
 from constructs import Construct
@@ -44,6 +44,7 @@ class ComputeStack(Stack):
 
             runtime=lambda_.Runtime.PYTHON_3_11,
 
+            # Path to where the code is
             code=lambda_.Code.from_asset(
                 os.path.join(PROJECT_ROOT, "src", "bronze", "hacker_news")
             ),
@@ -51,6 +52,7 @@ class ComputeStack(Stack):
             # which file and funcion is entry point
             handler="handler.handler", # handler.py, handler function
 
+            # Max time for lambda to do its job, after the time runs out AWS shuts lmbda off
             timeout=Duration.minutes(5),
 
             memory_size=128, # change if needed
@@ -62,6 +64,7 @@ class ComputeStack(Stack):
             },
         )
 
+        # add policy
         hn_lambda.add_to_role_policy(hn_lambda_policy)
 
         hn_schedule = events.Rule(
@@ -76,6 +79,7 @@ class ComputeStack(Stack):
             description="Trigger Lambda every day at 8",
         )
 
+        # when this schedule is triggered call lambda
         hn_schedule.add_target(targets.LambdaFunction(hn_lambda))
 
         # =====================
