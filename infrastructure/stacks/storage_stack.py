@@ -29,6 +29,8 @@ class StorageStack(Stack):
 
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL, # our bucket is private and no one can access it
 
+            event_bridge_enabled=True, # enable event bridge to trigger lambda when new file is uploaded
+
             removal_policy=RemovalPolicy.DESTROY,
 
             auto_delete_objects=True,
