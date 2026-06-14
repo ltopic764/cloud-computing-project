@@ -67,6 +67,8 @@ def handler(event: dict, context) -> dict:
     """
     Lambda entrypoint
     """
+    #raise Exception("TEST NOTIFICATION PURPOSELY")
+
     logger.info("HN Bronze Lambda started")
 
     # aDate for which we fetch data
