@@ -38,7 +38,7 @@ class ComputeStack(Stack):
         )
 
         # Lambda function for Hacker News site
-        hn_lambda = lambda_.Function(
+        self.hn_lambda = lambda_.Function(
             self,
             "HackerNewsLambda",
 
@@ -65,7 +65,7 @@ class ComputeStack(Stack):
         )
 
         # add policy
-        hn_lambda.add_to_role_policy(hn_lambda_policy)
+        self.hn_lambda.add_to_role_policy(hn_lambda_policy)
 
         hn_schedule = events.Rule(
             self,
@@ -80,7 +80,7 @@ class ComputeStack(Stack):
         )
 
         # when this schedule is triggered call lambda
-        hn_schedule.add_target(targets.LambdaFunction(hn_lambda))
+        hn_schedule.add_target(targets.LambdaFunction(self.hn_lambda))
 
         # =====================
         # Twitter Bronze Lambda
@@ -99,7 +99,7 @@ class ComputeStack(Stack):
             ],
         )
 
-        twitter_lambda = lambda_.Function(
+        self.twitter_lambda = lambda_.Function(
             self,
             "TwitterBronzeLambda",
 
@@ -123,7 +123,7 @@ class ComputeStack(Stack):
             },
         )
 
-        twitter_lambda.add_to_role_policy(twitter_lambda_policy)
+        self.twitter_lambda.add_to_role_policy(twitter_lambda_policy)
 
         # EventBridge rule for S3 Object Created events.
         # This avoids direct S3 notification dependency cycle between StorageStack and ComputeStack.
@@ -158,5 +158,5 @@ class ComputeStack(Stack):
         )
 
         twitter_input_rule.add_target(
-            targets.LambdaFunction(twitter_lambda)
+            targets.LambdaFunction(self.twitter_lambda)
         )
