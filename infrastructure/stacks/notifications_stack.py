@@ -22,6 +22,7 @@ class NotificationsStack(Stack):
         scope: Construct,
         construct_id: str,
         compute_stack,
+        silver_stack,
         **kwargs
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -69,8 +70,10 @@ class NotificationsStack(Stack):
 
         # list of lambda functions to track the status of
         lambdas_to_monitor = [
-            ("HackerNews", compute_stack.hn_lambda),
-            ("Twitter", compute_stack.twitter_lambda),
+            ("HackerNewsBronze", compute_stack.hn_lambda),
+            ("TwitterBronze", compute_stack.twitter_lambda),
+            ("HackerNewsSilver", silver_stack.hn_silver_lambda),
+            ("TwitterSilver", silver_stack.twitter_silver_lambda)
         ]
 
         for lambda_name, lambda_fn in lambdas_to_monitor:
