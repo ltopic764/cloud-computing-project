@@ -3,6 +3,8 @@ from aws_cdk import (
     Duration,
     aws_lambda as lambda_,
     aws_iam as iam,
+    aws_events as events,
+    aws_events_targets as targets,
 )
 from constructs import Construct
 
@@ -23,6 +25,10 @@ class SilverStack(Stack):
             "AWSSDKPandasLayer",
             layer_version_arn="arn:aws:lambda:eu-central-1:336392948345:layer:AWSSDKPandas-Python311:23",
         )
+
+        # ============================================================
+        # Hacker News Silver
+        # ============================================================
 
         # IAM policy for HN Silver Lambda
         hn_silver_policy = iam.PolicyStatement(
@@ -84,17 +90,66 @@ class SilverStack(Stack):
             self,
             "TwitterSilverLambda",
             runtime=lambda_.Runtime.PYTHON_3_11,
-            code=lambda_.Code.from_asset("../src/silver/twitter"),
+            code=lambda_.Code.from_asset(
+                "../src/silver/twitter"
+            ),
             handler="handler.handler",
             timeout=Duration.minutes(10),
             memory_size=1024,
 
-            layers=[pandas_layer],
+            layers=[
+                pandas_layer
+            ],
 
             environment={
-                "S3_BUCKET_NAME": storage_stack.bucket.bucket_name,
+                "S3_BUCKET_NAME":
+                    storage_stack.bucket.bucket_name,
                 "LOG_LEVEL": "INFO",
             },
         )
 
-        self.twitter_silver_lambda.add_to_role_policy(twitter_silver_policy)
+        self.twitter_silver_lambda.add_to_role_policy(
+            twitter_silver_policy
+        )
+
+        # ============================================================
+        # Trigger:
+        # bronze/twitter/* -> Twitter Silver Lambda
+        # ============================================================
+
+        twitter_bronze_created_rule = events.Rule(
+            self,
+            "TwitterBronzeCreatedRule",
+
+            event_pattern=events.EventPattern(
+                source=[
+                    "aws.s3"
+                ],
+
+                detail_type=[
+                    "Object Created"
+                ],
+
+                detail={
+                    "bucket": {
+                        "name": [
+                            storage_stack.bucket.bucket_name
+                        ]
+                    },
+
+                    "object": {
+                        "key": [
+                            {
+                                "prefix": "bronze/twitter/"
+                            }
+                        ]
+                    },
+                },
+            ),
+        )
+
+        twitter_bronze_created_rule.add_target(
+            targets.LambdaFunction(
+                self.twitter_silver_lambda
+            )
+        )
