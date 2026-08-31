@@ -56,7 +56,7 @@ class SilverStack(Stack):
             environment={
                 "S3_BUCKET_NAME": storage_stack.bucket.bucket_name,
                 "LOG_LEVEL": "INFO",
-                "MAX_USERS_TO_FETCH": "10", # testing
+                #"MAX_USERS_TO_FETCH": "10", # testing
             },
         )
 

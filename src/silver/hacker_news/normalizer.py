@@ -150,13 +150,13 @@ def fetch_hn_users(username: str, session: requests.Session) -> dict | None:
             logger.warning(f"HN user '{username}' does not exists or the account is deleted")
             return None
         
-        return None
+        return data
     
     except requests.exceptions.Timeout:
         logger.warning(f"Timeout fetching user '{username}'")
         return None
     
-    except requests.exceptions.RequestsWarning as e:
+    except Exception as e:
         logger.warning(f"Error fetching user '{username}' : '{e}'")
         return None
 
@@ -200,7 +200,7 @@ def normalize_users(items: list[dict]) -> pd.DataFrame:
         for i, (username, first_post_created_at) in enumerate(unique_authors.items()):
             # rate limiting
             if i > 0:
-                time.sleep(0.2)
+                time.sleep(0.05)
 
             user_data = fetch_hn_users(username, session)
 
