@@ -95,7 +95,7 @@ class StepFunctionsStack(Stack):
         silver_schedule.add_target(
             targets.SfnStateMachine(
                 state_machine,
-                input=sfn.TaskInput.from_object({}), # no run date passed, default is yesterday
+                input=events.RuleTargetInput.from_object({}), # no run date passed, default is yesterday
             )
         )
 
