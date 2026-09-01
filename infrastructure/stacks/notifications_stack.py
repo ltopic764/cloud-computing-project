@@ -28,7 +28,7 @@ class NotificationsStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         # SNS
-        alarm_topic = sns.Topic(self, "PipelineAlarmTopic", topic_name="social-media-pipeline-alarms", display_name="Social Media Pipeline Alarms",)
+        self.alarm_topic = sns.Topic(self, "PipelineAlarmTopic", topic_name="social-media-pipeline-alarms", display_name="Social Media Pipeline Alarms",)
 
         # Iam policy for the discord lambda
         # it can read the webhook url from ssm
@@ -63,7 +63,7 @@ class NotificationsStack(Stack):
 
         discord_lambda.add_to_role_policy(discord_lambda_policy)
 
-        alarm_topic.add_subscription(subs.LambdaSubscription(discord_lambda))
+        self.alarm_topic.add_subscription(subs.LambdaSubscription(discord_lambda))
 
         # cloudwatch alarms
         # alarm for each lambda
@@ -101,5 +101,5 @@ class NotificationsStack(Stack):
             )
 
             # when an alarm is invoked, send message to sns
-            alarm.add_alarm_action(cw_actions.SnsAction(alarm_topic))
+            alarm.add_alarm_action(cw_actions.SnsAction(self.alarm_topic))
             
