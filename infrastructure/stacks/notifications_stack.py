@@ -23,6 +23,7 @@ class NotificationsStack(Stack):
         construct_id: str,
         compute_stack,
         silver_stack,
+        gold_stack,
         **kwargs
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -73,7 +74,10 @@ class NotificationsStack(Stack):
             ("HackerNewsBronze", compute_stack.hn_lambda),
             ("TwitterBronze", compute_stack.twitter_lambda),
             ("HackerNewsSilver", silver_stack.hn_silver_lambda),
-            ("TwitterSilver", silver_stack.twitter_silver_lambda)
+            ("TwitterSilver", silver_stack.twitter_silver_lambda),
+            ("HackerNewsGold", gold_stack.hn_gold_lambda),
+            ("TwitterGold", gold_stack.twitter_gold_lambda),
+            ("DBLoader", gold_stack.db_loader_lambda),
         ]
 
         for lambda_name, lambda_fn in lambdas_to_monitor:
