@@ -22,11 +22,13 @@ class StepFunctionsStack(Stack):
         scope: Construct,
         construct_id: str,
         silver_stack,
+        gold_stack,
         notifications_stack,
         **kwargs
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
+        # SILVER STATE MACHINE
         # HN Silver Lambda call task
         hn_silver_task = tasks.LambdaInvoke(
             self,
@@ -64,7 +66,7 @@ class StepFunctionsStack(Stack):
         parallel_normalization.branch(twitter_silver_task)
 
         # State machine
-        state_machine = sfn.StateMachine(
+        silver_state_machine = sfn.StateMachine(
             self,
             "SilverLayerStateMachine",
             state_machine_name="social-media-pipeline-silver-normalization",
@@ -75,58 +77,119 @@ class StepFunctionsStack(Stack):
             timeout=Duration.minutes(15),
             state_machine_type=sfn.StateMachineType.STANDARD,
             logs=sfn.LogOptions(
-                destination=self._create_log_group(),
+                destination=self._create_log_group("silver"),
                 level=sfn.LogLevel.ERROR,
                 include_execution_data=True,
             ),
         )
 
         # Event bridge shceduler
-        silver_schedule = events.Rule(
+        events.Rule(
             self,
             "SilverLayerSchedule",
-            # cron
-            schedule=events.Schedule.cron(
-                minute="0",
-                hour="3",
-            ),
-        )
-
-        silver_schedule.add_target(
+            schedule=events.Schedule.cron(minute="0", hour="3"),
+            description="Begin Silver State Machine every day at 03:00 UTC",
+        ).add_target(
             targets.SfnStateMachine(
-                state_machine,
-                input=events.RuleTargetInput.from_object({}), # no run date passed, default is yesterday
+                silver_state_machine,
+                input=events.RuleTargetInput.from_object({}),
             )
         )
 
-        # CloudWatch alarm for state machine error
-        state_machine_alarm = cloudwatch.Alarm(
+        # GOLD STATE MACHINE
+        # Parallel execution of both gold lambdas and then when both finished goes the DB Loader
+
+        hn_gold_task = tasks.LambdaInvoke(
             self,
-            "SilverStateMachineFailureAlarm",
-            alarm_name="social-pipeline-silver-state-machine-failures",
-            alarm_description=(
-                "Silver Layer State Machine failed - "
-                "data normalization did not succeed. "
-                "Check CloudWatch Logs for details "
-            ),
-            metric=state_machine.metric_failed(
-                period=Duration.minutes(5),
-            ),
-            threshold=1,
-            evaluation_periods=1,
-            treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING,
+            "TransformHackerNewsData",
+            lambda_function=gold_stack.hn_gold_lambda,
+            payload=sfn.TaskInput.from_object({}),
+            retry_on_service_exceptions=True,
+            output_path="$.Payload",
+            comment="Calculating HN gold metrics from silver parquets",
         )
 
-        state_machine_alarm.add_alarm_action(
-            cw_actions.SnsAction(notifications_stack.alarm_topic)
+        twitter_gold_task = tasks.LambdaInvoke(
+            self, 
+            "TransformTwitterData",
+            lambda_function=gold_stack.twitter_gold_lambda,
+            payload=sfn.TaskInput.from_object({"run_date": "2026-05-29"}),
+            retry_on_service_exceptions=True,
+            output_path="$.Payload",
+            comment="Calculating Twitter gold metrics from silver parquets",
         )
 
-    def _create_log_group(self):
+        # waits for both of the lambdas
+        db_loader_task = tasks.LambdaInvoke(
+            self, 
+            "FillPostgreSQL",
+            lambda_function=gold_stack.db_loader_lambda,
+            retry_on_service_exceptions=True,
+            output_path="$.Payload",
+            comment="Move gold parquet data to PostgreSQL on EC2",
+        )
+
+        # parallel state for gold
+        parallel_gold = sfn.Parallel(
+            self,
+            "ParallelTransofmration",
+            comment="Parallel couunting HN and Twitter gold metrics",
+        )
+        parallel_gold.branch(hn_gold_task)
+        parallel_gold.branch(twitter_gold_task)
+
+        gold_chain = parallel_gold.next(db_loader_task)
+
+        gold_state_machine = sfn.StateMachine(
+            self,
+            "GoldLayerStateMachine",
+            state_machine_name="social-media-pipeline-gold-transformation",
+            definition_body=sfn.DefinitionBody.from_chainable(gold_chain),
+            timeout=Duration.minutes(20),
+            state_machine_type=sfn.StateMachineType.STANDARD,
+            logs=sfn.LogOptions(
+                destination=self._create_log_group("gold"),
+                level=sfn.LogLevel.ERROR,
+                include_execution_data=True,
+            ),
+        )
+
+        events.Rule(
+            self,
+            "GoldLayerSchedule",
+            schedule=events.Schedule.cron(minute="0", hour="4"),
+            description="Begin Gold State Machine every day at 04:00 UTC",
+        ).add_target(
+            targets.SfnStateMachine(
+                gold_state_machine,
+                input=events.RuleTargetInput.from_object({}),
+            )
+        )
+
+        # CloudWatch alarms for both
+        for sm_name, sm in [
+                ("Silver", silver_state_machine),
+                ("Gold", gold_state_machine),
+            ]:
+                alarm = cloudwatch.Alarm(
+                    self,
+                    f"{sm_name}StateMachineFailureAlarm",
+                    alarm_name=f"social-media-pipeline-{sm_name.lower()}-state-machine-failures",
+                    alarm_description=f"{sm_name} State Machine failed",
+                    metric=sm.metric_failed(period=Duration.minutes(5)),
+                    threshold=1,
+                    evaluation_periods=1,
+                    treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING,
+                )
+                alarm.add_alarm_action(
+                    cw_actions.SnsAction(notifications_stack.alarm_topic)
+                )
+
+    def _create_log_group(self, layer: str):
         from aws_cdk import aws_logs as logs
-
         return logs.LogGroup(
             self,
-            "SilverStateMachineLogGroup",
-            log_group_name="/aws/states/social-media-pipeline-silver",
+            f"{layer.capitalize()}StateMachineLogGroup",
+            log_group_name=f"/aws/states/social-media-pipeline-{layer}",
             retention=logs.RetentionDays.ONE_WEEK,
         )
