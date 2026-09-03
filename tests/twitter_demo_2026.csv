@@ -1,0 +1,8 @@
+user_name,user_location,user_description,user_created,user_followers,user_friends,user_favourites,user_verified,date,text,hashtags,source,is_retweet
+demo_old_user,Serbia,Old demo account,2020-01-10 10:00:00,15000,100,50,True,2026-09-02 10:00:00,Testing our cloud project on September 2,['cloud'],Web App,False
+demo_sep02,Serbia,New user September 2,2026-09-02 08:15:00,250,20,4,False,2026-09-02 11:00:00,My first demo tweet,['demo'],Web App,False
+demo_sep03_a,Serbia,New user September 3,2026-09-03 09:00:00,850,30,12,False,2026-09-03 09:30:00,Gold layer testing,['aws'],Web App,False
+demo_sep03_b,Germany,Another new user,2026-09-03 12:00:00,2500,120,30,True,2026-09-03 13:00:00,Testing Twitter metrics,['metrics'],Web App,False
+demo_sep04,Serbia,Defense demo account,2026-09-04 08:00:00,450,40,8,False,2026-09-04 09:00:00,Preparing for project defense,['cloud'],Web App,False
+demo_old_user,Serbia,Old demo account,2020-01-10 10:00:00,15025,100,51,True,2026-09-04 12:00:00,Another tweet from existing user,['demo'],Web App,False
+demo_sep04,Serbia,Defense demo account,2026-09-04 08:00:00,500,42,9,False,2026-09-04 14:00:00,RT @demo_old_user Testing retweets,['aws'],Web App,True
