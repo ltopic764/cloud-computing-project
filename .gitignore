@@ -21,3 +21,4 @@ src/**/vendor
 
 # Twitter input data
 src/bronze/twitter/input_data
+tests/input_data
