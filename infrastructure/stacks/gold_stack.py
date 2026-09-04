@@ -3,8 +3,10 @@ from aws_cdk import (
     Duration,
     aws_lambda as lambda_,
     aws_iam as iam,
+    aws_ec2 as ec2,
 )
 from constructs import Construct
+
 
 class GoldStack(Stack):
     def __init__(
@@ -12,26 +14,36 @@ class GoldStack(Stack):
         scope: Construct,
         construct_id: str,
         storage_stack,
+        ec2_stack,
         **kwargs
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # AWS Managed Layer fo pandas/pyarrow/awswrangler
+        # ============================================================
+        # AWS MANAGED PANDAS LAYER
+        # awswrangler + pandas + pyarrow
+        # ============================================================
+
         pandas_layer = lambda_.LayerVersion.from_layer_version_arn(
             self,
             "AWSSDKPandasLayerGold",
-            layer_version_arn="arn:aws:lambda:eu-central-1:336392948345:layer:AWSSDKPandas-Python311:23",
+            layer_version_arn=(
+                "arn:aws:lambda:eu-central-1:336392948345:"
+                "layer:AWSSDKPandas-Python311:23"
+            ),
         )
 
-        # HN Gold Lambda
-        #IAM policy, read silver HN data, write to gold HN folder
+        # ============================================================
+        # HACKER NEWS GOLD LAMBDA
+        # ============================================================
+
         hn_gold_policy = iam.PolicyStatement(
             effect=iam.Effect.ALLOW,
             actions=[
-                "s3:GetObject",     # read silver parquet
-                "s3:ListBucket", 
-                "s3:PutObject",     # write gold parquet
-                "s3:DeleteObject", 
+                "s3:GetObject",
+                "s3:ListBucket",
+                "s3:PutObject",
+                "s3:DeleteObject",
             ],
             resources=[
                 f"{storage_stack.bucket.bucket_arn}/silver/posts/*",
@@ -58,7 +70,10 @@ class GoldStack(Stack):
 
         self.hn_gold_lambda.add_to_role_policy(hn_gold_policy)
 
-        # Twitter Gold Lambda
+        # ============================================================
+        # TWITTER GOLD LAMBDA
+        # ============================================================
+
         twitter_gold_policy = iam.PolicyStatement(
             effect=iam.Effect.ALLOW,
             actions=[
@@ -90,10 +105,15 @@ class GoldStack(Stack):
             },
         )
 
-        self.twitter_gold_lambda.add_to_role_policy(twitter_gold_policy)
+        self.twitter_gold_lambda.add_to_role_policy(
+            twitter_gold_policy
+        )
 
-        # DB Loader Lambda
-        # PLACEHOLDER VALUES
+        # ============================================================
+        # DB LOADER LAMBDA
+        # Gold Parquet -> PostgreSQL
+        # ============================================================
+
         db_loader_policy = iam.PolicyStatement(
             effect=iam.Effect.ALLOW,
             actions=[
@@ -101,7 +121,6 @@ class GoldStack(Stack):
                 "s3:ListBucket",
             ],
             resources=[
-                # Čita iz gold foldera
                 f"{storage_stack.bucket.bucket_arn}/gold/*",
                 storage_stack.bucket.bucket_arn,
             ],
@@ -110,37 +129,73 @@ class GoldStack(Stack):
         self.db_loader_lambda = lambda_.Function(
             self,
             "DBLoaderLambda",
+
             runtime=lambda_.Runtime.PYTHON_3_11,
-            code=lambda_.Code.from_asset("../src/gold/db_loader"),
+
+            code=lambda_.Code.from_asset(
+                "../src/gold/db_loader"
+            ),
+
             handler="handler.handler",
 
-            # DB Loader moze trajati duze, mora da upiše sve tabele u PostgreSQL
             timeout=Duration.minutes(10),
-            memory_size=256,
+
+            memory_size=512,
 
             layers=[pandas_layer],
 
+            # Lambda mora da bude u VPC-u da dođe do EC2.
+            vpc=ec2_stack.vpc,
+
+            vpc_subnets=ec2.SubnetSelection(
+                subnet_type=ec2.SubnetType.PRIVATE_ISOLATED
+            ),
+
+            security_groups=[
+                ec2_stack.lambda_security_group
+            ],
+
             environment={
-                "S3_BUCKET_NAME": storage_stack.bucket.bucket_name,
+                "S3_BUCKET_NAME":
+                    storage_stack.bucket.bucket_name,
+
                 "LOG_LEVEL": "INFO",
-                # PostgreSQL konekcija, popunjava Clan 3 nakon EC2 deploymenta
-                "POSTGRES_HOST": "placeholder",
+
+                "POSTGRES_HOST":
+                    ec2_stack.instance.instance_private_ip,
+
                 "POSTGRES_PORT": "5432",
+
                 "POSTGRES_DB": "social_media",
+
                 "POSTGRES_USER": "pipeline_user",
-                # Password se čita iz SSM Parameter Store, ne ovde!
+
+                "POSTGRES_PASSWORD_PARAMETER":
+                    "/pipeline/postgres-password",
             },
         )
 
-        self.db_loader_lambda.add_to_role_policy(db_loader_policy)
+        self.db_loader_lambda.add_to_role_policy(
+            db_loader_policy
+        )
 
-        # SSM permisija, DB Loader cita PostgreSQL password iz SSM
+        # Dozvola da Lambda pročita password
+        # iz SSM Parameter Store-a.
         self.db_loader_lambda.add_to_role_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
-                actions=["ssm:GetParameter"],
+
+                actions=[
+                    "ssm:GetParameter"
+                ],
+
                 resources=[
-                    f"arn:aws:ssm:{self.region}:{self.account}:parameter/pipeline/*"
+                    (
+                        f"arn:aws:ssm:"
+                        f"{self.region}:"
+                        f"{self.account}:"
+                        f"parameter/pipeline/*"
+                    )
                 ],
             )
         )
