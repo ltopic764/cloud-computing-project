@@ -1,61 +1,95 @@
 #!/usr/bin/env python3
-import os
 
+import os
 import aws_cdk as cdk
 
-from stacks.infrastructure_stack import InfrastructureStack
 from stacks.storage_stack import StorageStack
 from stacks.compute_stack import ComputeStack
 from stacks.notifications_stack import NotificationsStack
 from stacks.silver_stack import SilverStack
 from stacks.gold_stack import GoldStack
 from stacks.step_functions_stack import StepFunctionsStack
+from stacks.ec2_stack import EC2Stack
 
-# Create CDK app
-# Root object
+
 app = cdk.App()
 
-# Create Storage stack
+env = cdk.Environment(
+    account=os.getenv("CDK_DEFAULT_ACCOUNT"),
+    region=os.getenv("CDK_DEFAULT_REGION", "eu-central-1"),
+)
+
+
+# ============================================================
+# STORAGE
+# ============================================================
+
 storage = StorageStack(
     app,
     "StorageStack",
-    env=cdk.Environment(
-        account=os.getenv("CDK_DEFAULT_ACCOUNT"),
-        region=os.getenv("CDK_DEFAULT_REGION", "eu-central-1"),
-    ),
+    env=env,
 )
 
-# Create Compute stack
+
+# ============================================================
+# EC2 + VPC + POSTGRESQL INFRASTRUCTURE
+# ============================================================
+
+ec2_stack = EC2Stack(
+    app,
+    "EC2Stack",
+    env=env,
+)
+
+
+# ============================================================
+# BRONZE / COMPUTE
+# ============================================================
+
 compute = ComputeStack(
     app,
     "ComputeStack",
     storage_stack=storage,
-    env=cdk.Environment(
-        account=os.getenv("CDK_DEFAULT_ACCOUNT"),
-        region=os.getenv("CDK_DEFAULT_REGION", "eu-central-1"),
-    ),
+    env=env,
 )
+
 compute.add_dependency(storage)
+
+
+# ============================================================
+# SILVER
+# ============================================================
 
 silver = SilverStack(
     app,
     "SilverStack",
     storage_stack=storage,
-    env=cdk.Environment(
-        account=os.getenv("CDK_DEFAULT_ACCOUNT"),
-        region=os.getenv("CDK_DEFAULT_REGION", "eu-central-1")),
+    env=env,
 )
+
 silver.add_dependency(storage)
+
+
+# ============================================================
+# GOLD
+# ============================================================
 
 gold = GoldStack(
     app,
     "GoldStack",
     storage_stack=storage,
-    env=cdk.Environment(
-        account=os.getenv("CDK_DEFAULT_ACCOUNT"),
-        region=os.getenv("CDK_DEFAULT_REGION", "eu-central-1")),
+    ec2_stack=ec2_stack,
+    env=env,
 )
+
+gold.add_dependency(storage)
 gold.add_dependency(silver)
+gold.add_dependency(ec2_stack)
+
+
+# ============================================================
+# NOTIFICATIONS
+# ============================================================
 
 notifications = NotificationsStack(
     app,
@@ -63,29 +97,30 @@ notifications = NotificationsStack(
     compute_stack=compute,
     silver_stack=silver,
     gold_stack=gold,
-    env=cdk.Environment(
-        account=os.getenv("CDK_DEFAULT_ACCOUNT"),
-        region=os.getenv("CDK_DEFAULT_REGION", "eu-central-1"),
-    ),
+    env=env,
 )
-# Always deploy storage before compute
+
 notifications.add_dependency(compute)
 notifications.add_dependency(silver)
 notifications.add_dependency(gold)
 
+
+# ============================================================
+# STEP FUNCTIONS
+# ============================================================
+
 step_functions = StepFunctionsStack(
-    app, 
+    app,
     "StepFunctionsStack",
     silver_stack=silver,
     gold_stack=gold,
     notifications_stack=notifications,
-    env=cdk.Environment(
-        account=os.getenv("CDK_DEFAULT_ACCOUNT"),
-        region=os.getenv("CDK_DEFAULT_REGION", "eu-central-1"),
-    ),
+    env=env,
 )
+
 step_functions.add_dependency(silver)
 step_functions.add_dependency(gold)
 step_functions.add_dependency(notifications)
+
 
 app.synth()
