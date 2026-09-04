@@ -73,10 +73,10 @@ class ComputeStack(Stack):
 
             schedule=events.Schedule.cron(
                 minute="0",
-                hour="7",
+                hour="1",
             ),
 
-            description="Trigger Lambda every day at 8",
+            description="Trigger Lambda every day at 3",
         )
 
         # when this schedule is triggered call lambda
