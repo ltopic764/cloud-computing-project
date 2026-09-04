@@ -185,8 +185,6 @@ def handler(event: dict, context) -> dict:
                 "message": "No bronze data",
             }
         
-        result = normalize(items)
-        posts_df, users_df = result
         posts_df, users_df = normalize(items)
 
         posts_ok = write_posts_to_silver(posts_df, run_date)
